@@ -56,6 +56,7 @@ func handleCrashedServer(s *models.Server) error {
 			log.Errorf("do promote %v failed %v", slave, errors.ErrorStack(err))
 			return err
 		}
+		refreshSlave(s) //刷新
 	case models.SERVER_TYPE_SLAVE:
 		log.Errorf("slave is down: %+v", s)
 	case models.SERVER_TYPE_OFFLINE:
@@ -98,4 +99,21 @@ func CheckAliveAndPromote(groups []models.ServerGroup) ([]models.Server, error) 
 	}
 
 	return crashedServer, nil
+}
+
+func refreshSlave(master *models.Server)  {
+    var group models.ServerGroup
+    err := callHttp(&group, genUrl(*apiServer, "/api/server_group/", master.GroupId), "GET", nil)
+    if err == nil {
+        for _, s := range group.Servers {
+            if s.Type == models.SERVER_TYPE_SLAVE {
+                err := callHttp(nil, genUrl(*apiServer, "/api/server_group/", master.GroupId,"/addServer"), "PUT", s)
+                if err != nil {
+                    log.Errorf("slave  refresh failed:  %v error:v%",  s , errors.ErrorStack(err))
+                }
+            }
+        }
+    }else{
+        log.Errorf("slave  refresh failed:  %v",  errors.Trace(err))
+    }
 }
